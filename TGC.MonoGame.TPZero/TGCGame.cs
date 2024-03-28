@@ -37,7 +37,7 @@ namespace TGC.MonoGame.TP
 
         private float MAX_WHEEL_ANGLE = MathHelper.ToRadians(30f);
 
-        private float CAR_ROTATION_COEFF = 0.005f;
+        private float CAR_ROTATION_COEFF = 0.015f;
 
 
 
@@ -133,7 +133,7 @@ namespace TGC.MonoGame.TP
 
             carSpeed -= carSpeed * FRICTION_COEFF;
             CarWorld = Matrix.CreateFromAxisAngle((CarWorld * Matrix.CreateTranslation(CarWorld.Forward * 2f)).Up, wheelAngle * carSpeed * CAR_ROTATION_COEFF) * CarWorld;
-            CarWorld *= Matrix.CreateTranslation(CarWorld.Forward * carSpeed);
+            CarWorld *= Matrix.CreateTranslation(CarWorld.Forward *  (float) Math.Cos(wheelAngle) * carSpeed);
 
 
             if (keyboardState.IsKeyDown(Keys.Escape))
