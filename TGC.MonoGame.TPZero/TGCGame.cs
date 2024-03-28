@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -24,6 +25,20 @@ namespace TGC.MonoGame.TP
         private Model CarModel { get; set; }
         private Matrix CarWorld { get; set; }
         private FollowCamera FollowCamera { get; set; }
+
+        private float carSpeed = 0f;
+
+        private float CAR_ACCEL = 0.1f;
+        private float FRICTION_COEFF = 0.005f;
+
+        private float wheelAngle = 0;
+
+        private float WHEEL_ROTATION_SPEED = MathHelper.ToRadians(1f);
+
+        private float MAX_WHEEL_ANGLE = MathHelper.ToRadians(30f);
+
+        private float CAR_ROTATION_COEFF = 0.005f;
+
 
 
         /// <summary>
@@ -77,7 +92,7 @@ namespace TGC.MonoGame.TP
             // Creo la escena de la ciudad.
             City = new CityScene(Content);
 
-            // La carga de contenido debe ser realizada aca.
+            CarModel = Content.Load<Model>("Models/scene/car");
 
             base.LoadContent();
         }
@@ -88,18 +103,47 @@ namespace TGC.MonoGame.TP
         /// </summary>
         protected override void Update(GameTime gameTime)
         {
+
+
             // Caputo el estado del teclado.
             var keyboardState = Keyboard.GetState();
+
+            if (keyboardState.IsKeyDown(Keys.A))
+            {
+                wheelAngle = Math.Min(MAX_WHEEL_ANGLE, wheelAngle + WHEEL_ROTATION_SPEED);
+            }
+            else if (keyboardState.IsKeyDown(Keys.D))
+            {
+                wheelAngle = Math.Max(-MAX_WHEEL_ANGLE, wheelAngle - WHEEL_ROTATION_SPEED);
+            }
+            else
+            {
+                wheelAngle -= wheelAngle * 0.5f;
+            }
+
+            if (keyboardState.IsKeyDown(Keys.W))
+            {
+                carSpeed += CAR_ACCEL;
+            }
+
+            if (keyboardState.IsKeyDown(Keys.S))
+            {
+                carSpeed -= CAR_ACCEL;
+            }
+
+            carSpeed -= carSpeed * FRICTION_COEFF;
+            CarWorld = Matrix.CreateFromAxisAngle((CarWorld * Matrix.CreateTranslation(CarWorld.Forward * 2f)).Up, wheelAngle * carSpeed * CAR_ROTATION_COEFF) * CarWorld;
+            CarWorld *= Matrix.CreateTranslation(CarWorld.Forward * carSpeed);
+
+
             if (keyboardState.IsKeyDown(Keys.Escape))
             {
-                // Salgo del juego.
                 Exit();
             }
 
-            // La logica debe ir aca.
-
             // Actualizo la camara, enviandole la matriz de mundo del auto.
             FollowCamera.Update(gameTime, CarWorld);
+
 
             base.Update(gameTime);
         }
@@ -118,6 +162,8 @@ namespace TGC.MonoGame.TP
             City.Draw(gameTime, FollowCamera.View, FollowCamera.Projection);
 
             // El dibujo del auto debe ir aca.
+            CarModel.Draw(CarWorld, FollowCamera.View, FollowCamera.Projection);
+
 
             base.Draw(gameTime);
         }
