@@ -26,10 +26,8 @@ namespace TGC.MonoGame.TP
         private Matrix CarWorld { get; set; }
         private FollowCamera FollowCamera { get; set; }
 
-        private float carSpeed = 0f;
-
-        private float CAR_ACCEL = 0.1f;
-        private float FRICTION_COEFF = 0.005f;
+        private float wheelForce = 13000f;
+        private float dragCoefficient = 5f;
 
         private float wheelAngle = 0;
 
@@ -37,7 +35,13 @@ namespace TGC.MonoGame.TP
 
         private float MAX_WHEEL_ANGLE = MathHelper.ToRadians(30f);
 
-        private float CAR_ROTATION_COEFF = 0.015f;
+        private float carRotationSpeed = 0.025f;
+
+        private float tireSlipCoefficient = 2f;
+
+        private float carMass = 20f;
+
+        private Vector3 carVelocity = Vector3.Zero;
 
 
 
@@ -105,6 +109,9 @@ namespace TGC.MonoGame.TP
         {
 
 
+            float totalForce = 0;
+            float dt = (float) gameTime.ElapsedGameTime.TotalSeconds;
+
             // Caputo el estado del teclado.
             var keyboardState = Keyboard.GetState();
 
@@ -123,17 +130,24 @@ namespace TGC.MonoGame.TP
 
             if (keyboardState.IsKeyDown(Keys.W))
             {
-                carSpeed += CAR_ACCEL;
+              totalForce = wheelForce;
             }
 
             if (keyboardState.IsKeyDown(Keys.S))
             {
-                carSpeed -= CAR_ACCEL;
+              totalForce = - wheelForce;
             }
 
-            carSpeed -= carSpeed * FRICTION_COEFF;
-            CarWorld = Matrix.CreateFromAxisAngle((CarWorld * Matrix.CreateTranslation(CarWorld.Forward * 2f)).Up, wheelAngle * carSpeed * CAR_ROTATION_COEFF) * CarWorld;
-            CarWorld *= Matrix.CreateTranslation(CarWorld.Forward *  (float) Math.Cos(wheelAngle) * carSpeed);
+            Vector3 forwardAcceleration = CarWorld.Forward * totalForce / carMass;
+            Vector3 dragAcceleration = -dragCoefficient * carVelocity / carMass;
+            Vector3 tireSlipAcceleration = carVelocity.Length() < float.Epsilon ? Vector3.Zero : -tireSlipCoefficient * Vector3.Cross(CarWorld.Forward, carVelocity).Length() / carVelocity.Length() * carVelocity;
+
+            carVelocity += (forwardAcceleration + dragAcceleration+ tireSlipAcceleration) * dt;
+
+            
+
+            CarWorld = Matrix.CreateFromAxisAngle(CarWorld.Up, wheelAngle * carVelocity.Length() * carRotationSpeed  * dt) * CarWorld;
+            CarWorld *= Matrix.CreateTranslation(carVelocity * dt);
 
 
             if (keyboardState.IsKeyDown(Keys.Escape))
