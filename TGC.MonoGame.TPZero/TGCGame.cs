@@ -26,21 +26,59 @@ namespace TGC.MonoGame.TP
         private Matrix CarWorld { get; set; }
         private FollowCamera FollowCamera { get; set; }
 
-        private float wheelForce = 13000f;
+
+        /*
+            Fuerza total que aplica la rueda para traccionar hacia adeltane
+        */
+        private float wheelForce = 6000f;
+
+        /* 
+            Coeficiente de arrastre del viento
+        */
         private float dragCoefficient = 5f;
 
+        /*
+            Angulo de la rueda
+        */
         private float wheelAngle = 0;
 
-        private float WHEEL_ROTATION_SPEED = MathHelper.ToRadians(1f);
 
-        private float MAX_WHEEL_ANGLE = MathHelper.ToRadians(30f);
+        /*
+        Coeficiente de velocidad de rotacion de la rueda (que tan rapido gira)
+        */
+        private float wheelRotationRate = MathHelper.ToRadians(1f);
 
-        private float carRotationSpeed = 0.025f;
 
-        private float tireSlipCoefficient = 2f;
+        /*
+        Que tan rapido puede girar el auto
+        */
+        private float maxCarRotationRate = MathHelper.ToRadians(100f);
 
+        /*
+        Angulo maximo de la rueda
+        */
+        private float maxWheelAngle = MathHelper.ToRadians(40f);
+
+        /*
+        Coeficiente de velocidad de rotacion del auto
+        */
+        private float carRotationRate = 0.015f;
+
+        /*
+        Coeficiente de deslizamiento del auto
+        */
+        private float tireSlipCoefficient = 5f;
+
+
+        /*
+        Masa del auto
+        */
         private float carMass = 20f;
 
+
+        /*
+        Velocidad del auto
+        */
         private Vector3 carVelocity = Vector3.Zero;
 
 
@@ -110,18 +148,18 @@ namespace TGC.MonoGame.TP
 
 
             float totalForce = 0;
-            float dt = (float) gameTime.ElapsedGameTime.TotalSeconds;
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             // Caputo el estado del teclado.
             var keyboardState = Keyboard.GetState();
 
             if (keyboardState.IsKeyDown(Keys.A))
             {
-                wheelAngle = Math.Min(MAX_WHEEL_ANGLE, wheelAngle + WHEEL_ROTATION_SPEED);
+                wheelAngle = Math.Min(maxWheelAngle, wheelAngle + wheelRotationRate);
             }
             else if (keyboardState.IsKeyDown(Keys.D))
             {
-                wheelAngle = Math.Max(-MAX_WHEEL_ANGLE, wheelAngle - WHEEL_ROTATION_SPEED);
+                wheelAngle = Math.Max(-maxWheelAngle, wheelAngle - wheelRotationRate);
             }
             else
             {
@@ -130,23 +168,43 @@ namespace TGC.MonoGame.TP
 
             if (keyboardState.IsKeyDown(Keys.W))
             {
-              totalForce = wheelForce;
+                totalForce = wheelForce;
             }
 
             if (keyboardState.IsKeyDown(Keys.S))
             {
-              totalForce = - wheelForce;
+                totalForce = -wheelForce;
             }
 
+            /*
+                Planteo (o intento plantear jsjsk) el siguiente modelo para el movimiento del auto:
+                m * d^2r/dt^2 = r/|r| * totalForce - dr/dt * dragCoeffcieint + tireSlipCoefficient * (dr/dt x (dr/dt x r/|r|)) / |dr/dt|
+                
+                1) La primera fuerza son las ruedas del auto
+                2) La segunda fuerza es el arrastre general del viento y las ruedas en contra del auto
+                3) La tercera fuerza es el deslizamiento de las ruedas cuando el auto "apunta" en una direccion diferente respecto a la direccion de movimiento. 
+                    Causa que el auto tienda a moverse hacia donde "mira", cancelando el movimiento perpendicular a esa direccion
+            */
             Vector3 forwardAcceleration = CarWorld.Forward * totalForce / carMass;
             Vector3 dragAcceleration = -dragCoefficient * carVelocity / carMass;
-            Vector3 tireSlipAcceleration = carVelocity.Length() < float.Epsilon ? Vector3.Zero : -tireSlipCoefficient * Vector3.Cross(CarWorld.Forward, carVelocity).Length() / carVelocity.Length() * carVelocity;
+            Vector3 tireSlipAcceleration = carVelocity.Length() < float.Epsilon ? Vector3.Zero : tireSlipCoefficient * Vector3.Cross(carVelocity, Vector3.Cross(CarWorld.Forward, carVelocity)) / carVelocity.Length() * Math.Sign(Vector3.Dot(CarWorld.Forward, carVelocity));
 
-            carVelocity += (forwardAcceleration + dragAcceleration+ tireSlipAcceleration) * dt;
+            /*
+                Usamos:
+                dr/dt(t + dt) =~ dr/dt(t) + d^2r/dt^2 * dt 
+            */
+            carVelocity += (forwardAcceleration + dragAcceleration + tireSlipAcceleration) * dt;
 
-            
 
-            CarWorld = Matrix.CreateFromAxisAngle(CarWorld.Up, wheelAngle * carVelocity.Length() * carRotationSpeed  * dt) * CarWorld;
+            /*
+                Modelo para la rotacion del auto que mas o menos resultaba potable.
+            */
+            CarWorld = Matrix.CreateFromAxisAngle(CarWorld.Up, Math.Sign(wheelAngle * Math.Pow(carVelocity.Length(), 1.5) * carRotationRate * dt) * Math.Abs(Math.Min(maxCarRotationRate * dt, Math.Abs(wheelAngle * carVelocity.Length() * carRotationRate * dt)))) * CarWorld;
+
+            /*
+                Usamos:
+                r(t+dt) =~ r(t) + dr/dt * dt
+            */
             CarWorld *= Matrix.CreateTranslation(carVelocity * dt);
 
 
